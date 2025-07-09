@@ -1,4 +1,4 @@
-// server.js
+// server.js (Render backend)
 const express = require('express');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
@@ -37,7 +37,7 @@ app.get('/', (req, res) => {
  */
 app.get('/api/confirm', async (req, res) => {
   try {
-    const { discordId, code, fingerprint } = req.query;
+    const { discordId, code } = req.query;
     if (!discordId || !code) {
       return res.status(400).send('<h1>Missing discordId or code</h1>');
     }
@@ -48,7 +48,6 @@ app.get('/api/confirm', async (req, res) => {
       return res.status(400).send('<h1>Invalid or expired code</h1>');
     }
 
-    // Mark IP/fingerprint confirmed
     db.data.ipconfirmed[discordId] = true;
     await db.write();
 
@@ -80,21 +79,16 @@ app.post('/api/verify', async (req, res) => {
       return res.status(400).json({ error: 'Invalid verification code.' });
     }
 
-    // Hash IP/fingerprint for storage
-    const hash = (s) => crypto.createHash('sha256').update(s).digest('hex');
-    const ipHash = hash(ip);
-    const fpHash = hash(fingerprint);
-
-    // Save full record and mark confirmed
+    const hash = s => crypto.createHash('sha256').update(s).digest('hex');
     db.data.verifydata[discordId] = {
       robloxUsername,
       code,
-      fingerprintHash: fpHash,
-      ipHash,
+      fingerprintHash: hash(fingerprint),
+      ipHash: hash(ip),
       timestamp: Date.now()
     };
     db.data.ipconfirmed[discordId] = true;
-    delete db.data.verifycodes[discordId];  // remove one-time code
+    delete db.data.verifycodes[discordId];
     await db.write();
 
     return res.json({ success: true });
@@ -104,7 +98,7 @@ app.post('/api/verify', async (req, res) => {
   }
 });
 
-// Generate & store code endpoint (optional if you still want separate)
+// Optional: generate code endpoint if vuoi separarlo
 app.post('/api/generate', async (req, res) => {
   const { discordId } = req.body;
   if (!discordId) {
