@@ -13,20 +13,18 @@ app.use(bodyParser.json());
 
 const file = path.join(__dirname, 'db.json');
 const adapter = new JSONFile(file);
-const db = new Low(adapter);
+// Qui passiamo i default direttamente
+const defaultData = {
+  verifycodes: {},
+  verifydata: {},
+  ipconfirmed: {}
+};
+const db = new Low(adapter, defaultData);
 
 async function initDB() {
   await db.read();
-
-  if (!db.data) {
-    // Imposta i dati di default se vuoto
-    db.data = {
-      verifycodes: {},
-      verifydata: {},
-      ipconfirmed: {}
-    };
-    await db.write();
-  }
+  // A questo punto db.data è già defaultData oppure i contenuti di db.json
+  await db.write();  // crea db.json se non esiste
 }
 initDB();
 
