@@ -4,7 +4,6 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
 
-// Import Lowdb CommonJS versione
 const { Low } = require('lowdb');
 const { JSONFile } = require('lowdb/node');
 
@@ -18,8 +17,16 @@ const db = new Low(adapter);
 
 async function initDB() {
   await db.read();
-  db.data ||= { verifycodes: {}, verifydata: {}, ipconfirmed: {} };
-  await db.write();
+
+  if (!db.data) {
+    // Imposta i dati di default se vuoto
+    db.data = {
+      verifycodes: {},
+      verifydata: {},
+      ipconfirmed: {}
+    };
+    await db.write();
+  }
 }
 initDB();
 
