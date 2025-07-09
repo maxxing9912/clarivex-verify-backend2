@@ -1,65 +1,67 @@
-// server.js
 const express = require('express');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { Low } = require('lowdb');
-const { JSONFile } = require('lowdb/node');
+const { Low, JSONFile } = require('lowdb');
 const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// LowDB setup with default data {}
+// Setup lowdb
 const file = path.join(__dirname, 'db.json');
 const adapter = new JSONFile(file);
-const db = new Low(adapter, {});      // ← pass default data here
+const db = new Low(adapter);
 
-// Initialize DB
-(async () => {
+async function initDB() {
   await db.read();
-  // After read, db.data is guaranteed (either file contents or the default {})
+  db.data ||= {}; // inizializza se vuoto
   await db.write();
-})();
+}
+initDB();
 
-// Utility: SHA256 hash for IP
+// Funzione per hash SHA256 (per IP e fingerprint)
 function hashData(data) {
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 
-// Health-check
 app.get('/', (req, res) => {
   res.send('Backend is running');
 });
 
-// Verification endpoint
 app.post('/api/verify', async (req, res) => {
-  const { discordId, robloxId, code, fingerprint, ip } = req.body;
+  const { discordId, robloxUsername, code, fingerprint, ip } = req.body;
+
+  // Controllo dati obbligatori
   if (!discordId || !code || !fingerprint || !ip) {
-    return res.status(400).json({ error: 'Missing required data' });
+    return res.status(400).json({ success: false, error: 'Missing required data' });
   }
 
-  // Ensure latest disk contents
   await db.read();
 
-  // Hash IP
-  const ipHash = hashData(ip);
-
-  // Fetch saved code
+  // Recupera codice salvato per utente
   const savedCode = db.data[`verifycode_${discordId}`];
   if (savedCode !== code) {
-    return res.status(400).json({ error: 'Invalid verification code' });
+    return res.status(400).json({ success: false, error: 'Invalid verification code' });
   }
 
-  // Store verification details
-  db.data[`verifydata_${discordId}`] = { robloxId, code, fingerprint, ipHash, timestamp: Date.now() };
-  db.data[`ipconfirmed_${discordId}`] = true;
+  // Hasha fingerprint e IP
+  const fingerprintHash = hashData(fingerprint);
+  const ipHash = hashData(ip);
 
-  // Persist
+  // Salva i dati di verifica con timestamp
+  db.data[`verifydata_${discordId}`] = {
+    robloxUsername,
+    code,
+    fingerprint: fingerprintHash,
+    ipHash,
+    timestamp: Date.now()
+  };
+  db.data[`ipconfirmed_${discordId}`] = true;
   await db.write();
 
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3000;
