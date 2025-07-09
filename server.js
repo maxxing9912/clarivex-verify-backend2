@@ -1,15 +1,12 @@
-// server.js
-import express from 'express';
-import crypto from 'crypto';
-import bodyParser from 'body-parser';
-import cors from 'cors';
-import path from 'path';
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
-import { fileURLToPath } from 'url';
+// server.js (CommonJS)
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require('express');
+const crypto = require('crypto');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const path = require('path');
+const { Low } = require('lowdb');
+const { JSONFile } = require('lowdb/node');
 
 const app = express();
 app.use(cors());
@@ -35,7 +32,8 @@ async function initDB() {
   if (!db.data.verifydata) db.data.verifydata = {};
   if (!db.data.ipconfirmed) db.data.ipconfirmed = {};
 }
-await initDB();
+
+initDB().catch(console.error);
 
 // Funzione hash (SHA256)
 function hashData(data) {
