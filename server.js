@@ -12,25 +12,22 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Setup lowdb
+// Percorso del file database
 const file = path.join(__dirname, 'db.json');
+// Adapter per JSONFile
 const adapter = new JSONFile(file);
-const db = new Low(adapter);
+// Inizializza Low con dati di default
+const defaultData = { verifycodes: {}, verifydata: {}, ipconfirmed: {} };
+const db = new Low(adapter, defaultData);
 
-// Funzione per inizializzare dati default se mancanti
+// Funzione per inizializzare dati se mancanti
 async function initDB() {
   await db.read();
+  // Se non esistono dati, scrivi quelli di default
   if (!db.data) {
-    db.data = {
-      verifycodes: {},
-      verifydata: {},
-      ipconfirmed: {}
-    };
+    db.data = defaultData;
     await db.write();
   }
-  if (!db.data.verifycodes) db.data.verifycodes = {};
-  if (!db.data.verifydata) db.data.verifydata = {};
-  if (!db.data.ipconfirmed) db.data.ipconfirmed = {};
 }
 
 initDB().catch(console.error);
@@ -54,11 +51,6 @@ app.post('/api/verify', async (req, res) => {
 
   await db.read();
 
-  // Assicura struttura dati
-  if (!db.data.verifycodes) db.data.verifycodes = {};
-  if (!db.data.verifydata) db.data.verifydata = {};
-  if (!db.data.ipconfirmed) db.data.ipconfirmed = {};
-
   const savedCode = db.data.verifycodes[discordId];
   if (savedCode !== code) {
     return res.status(400).json({ error: 'Invalid verification code' });
@@ -81,9 +73,6 @@ app.get('/api/status', async (req, res) => {
   if (!discordId) return res.status(400).json({ error: 'Missing discordId' });
 
   await db.read();
-  if (!db.data) db.data = {};
-  if (!db.data.ipconfirmed) db.data.ipconfirmed = {};
-
   const confirmed = db.data.ipconfirmed[discordId] || false;
   res.json({ confirmed });
 });
