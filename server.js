@@ -1,32 +1,27 @@
-import express from 'express';
-import crypto from 'crypto';
-import bodyParser from 'body-parser';
-import cors from 'cors';
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const express = require('express');
+const crypto = require('crypto');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const path = require('path');
 
-// Per __dirname in ESM:
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Import Lowdb CommonJS versione
+const { Low } = require('lowdb');
+const { JSONFile } = require('lowdb/node');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// lowdb setup
 const file = path.join(__dirname, 'db.json');
 const adapter = new JSONFile(file);
 const db = new Low(adapter);
 
-// Inizializza DB con dati di default
 async function initDB() {
   await db.read();
-  db.data ||= { verifycodes: {}, verifydata: {}, ipconfirmed: {} }; // struttura base
+  db.data ||= { verifycodes: {}, verifydata: {}, ipconfirmed: {} };
   await db.write();
 }
-await initDB();
+initDB();
 
 function hashData(data) {
   return crypto.createHash('sha256').update(data).digest('hex');
@@ -53,7 +48,6 @@ app.post('/api/verify', async (req, res) => {
 
   db.data.verifydata[discordId] = { robloxId, code, fingerprint, ipHash, timestamp: Date.now() };
   db.data.ipconfirmed[discordId] = true;
-  // Rimuovi codice temporaneo se vuoi:
   delete db.data.verifycodes[discordId];
 
   await db.write();
