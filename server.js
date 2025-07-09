@@ -21,15 +21,9 @@ const defaultData = {
   ipconfirmed: {}     // discordId → true
 };
 const db = new Low(adapter, defaultData);
-
 (async () => {
-  try {
-    await db.read();
-    await db.write();
-    console.log('LowDB initialized');
-  } catch (err) {
-    console.error('Error initializing LowDB:', err);
-  }
+  await db.read();
+  await db.write();
 })();
 
 // Health check
@@ -37,29 +31,22 @@ app.get('/', (req, res) => {
   res.send('Backend is running');
 });
 
-/**
- * 1) CLICK-LINK endpoint
- * GET /api/confirm?discordId=…&code=…&fingerprint=…
- */
+// 1) CLICK-LINK endpoint
 app.get('/api/confirm', async (req, res) => {
   try {
     const { discordId, code } = req.query;
     if (!discordId || !code) {
-      console.warn('[/api/confirm] Missing params', req.query);
       return res.status(400).send('<h1>Missing discordId or code</h1>');
     }
 
     await db.read();
     const saved = db.data.verifycodes[discordId];
     if (!saved || saved !== code) {
-      console.warn(`[/api/confirm] Invalid code for ${discordId}`, { saved, code });
       return res.status(400).send('<h1>Invalid or expired code</h1>');
     }
 
-    // mark as confirmed
     db.data.ipconfirmed[discordId] = true;
     await db.write();
-    console.log(`[/api/confirm] Confirmed device for ${discordId}`);
 
     return res.send(`
       <h1>✅ Device confirmed!</h1>
@@ -71,23 +58,17 @@ app.get('/api/confirm', async (req, res) => {
   }
 });
 
-/**
- * 2) FRONTEND POST endpoint
- * POST /api/verify
- * Body: { discordId, code, fingerprint, ip, robloxUsername }
- */
+// 2) FRONTEND POST endpoint
 app.post('/api/verify', async (req, res) => {
   try {
     const { discordId, code, fingerprint, ip, robloxUsername } = req.body;
     if (!discordId || !code || !fingerprint || !ip || !robloxUsername) {
-      console.warn('[/api/verify] Missing body fields', req.body);
       return res.status(400).json({ error: 'Missing required parameters.' });
     }
 
     await db.read();
     const saved = db.data.verifycodes[discordId];
     if (saved !== code) {
-      console.warn(`[/api/verify] Code mismatch for ${discordId}`, { saved, code });
       return res.status(400).json({ error: 'Invalid verification code.' });
     }
 
@@ -103,11 +84,26 @@ app.post('/api/verify', async (req, res) => {
     delete db.data.verifycodes[discordId];
     await db.write();
 
-    console.log(`[/api/verify] Stored verification for ${discordId}`);
     return res.json({ success: true });
   } catch (err) {
     console.error('[/api/verify] Error:', err);
     return res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// 3) STATUS endpoint
+app.get('/api/status', async (req, res) => {
+  try {
+    const { discordId } = req.query;
+    if (!discordId) {
+      return res.status(400).json({ error: 'Missing discordId' });
+    }
+    await db.read();
+    const confirmed = !!db.data.ipconfirmed[discordId];
+    return res.json({ confirmed });
+  } catch (err) {
+    console.error('[/api/status] Error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
